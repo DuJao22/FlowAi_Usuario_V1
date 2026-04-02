@@ -25,9 +25,28 @@ db.exec(`
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     gemini_api_key TEXT,
+    webhook_token TEXT UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
+
+// Migração: Adiciona webhook_token se não existir e gera para usuários antigos
+try {
+  const columns = db.prepare("PRAGMA table_info(users)").all() as any[];
+  if (!columns.find(c => c.name === 'webhook_token')) {
+    db.exec("ALTER TABLE users ADD COLUMN webhook_token TEXT UNIQUE");
+    console.log("Coluna webhook_token adicionada à tabela users.");
+  }
+  
+  // Gera tokens para usuários que não têm
+  const usersWithoutToken = db.prepare("SELECT id FROM users WHERE webhook_token IS NULL").all() as any[];
+  for (const user of usersWithoutToken) {
+    const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    db.prepare("UPDATE users SET webhook_token = ? WHERE id = ?").run(token, user.id);
+  }
+} catch (e) {
+  console.error("Erro na migração de webhook_token:", e);
+}
 
 // Create flows table
 db.exec(`
@@ -155,12 +174,13 @@ async function startServer() {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const stmt = db.prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+      const webhookToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const stmt = db.prepare("INSERT INTO users (username, password, webhook_token) VALUES (?, ?, ?)");
       
       try {
-        const result = stmt.run(username, hashedPassword);
+        const result = stmt.run(username, hashedPassword, webhookToken);
         const token = jwt.sign({ userId: result.lastInsertRowid, username }, INTERNAL_APP_SECRET, { expiresIn: "7d" });
-        res.json({ success: true, token, user: { id: result.lastInsertRowid, username } });
+        res.json({ success: true, token, user: { id: result.lastInsertRowid, username, webhook_token: webhookToken } });
       } catch (err: any) {
         if (err.message.includes("UNIQUE constraint failed")) {
           return res.status(400).json({ error: "Usuário já existe." });
@@ -185,7 +205,16 @@ async function startServer() {
       }
 
       const token = jwt.sign({ userId: user.id, username: user.username }, INTERNAL_APP_SECRET, { expiresIn: "7d" });
-      res.json({ success: true, token, user: { id: user.id, username: user.username, gemini_api_key: user.gemini_api_key } });
+      res.json({ 
+        success: true, 
+        token, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          gemini_api_key: user.gemini_api_key,
+          webhook_token: user.webhook_token
+        } 
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -259,7 +288,7 @@ async function startServer() {
       res.json({ 
         success: true, 
         message: "Fluxo salvo no servidor.", 
-        webhookUrl: `/api/trigger/${username}/${id}` 
+        webhookUrl: `/api/trigger/${username}/${id}?token=${req.user.webhook_token || ''}` 
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -269,12 +298,27 @@ async function startServer() {
   // Endpoint de Gatilho (Webhook) - Executa um fluxo salvo via GET ou POST
   app.all("/api/trigger/:username/:flowId", async (req, res) => {
     const { username, flowId } = req.params;
+    const { token } = req.query;
+    
     console.log(`[Webhook] Recebido gatilho para o usuário ${username}, fluxo: ${flowId}`);
     
     try {
-      const user: any = db.prepare("SELECT id, gemini_api_key FROM users WHERE username = ?").get(username);
+      const user: any = db.prepare("SELECT id, gemini_api_key, webhook_token FROM users WHERE username = ?").get(username);
       if (!user) {
         return res.status(404).json({ error: "Usuário não encontrado." });
+      }
+
+      // Validação do Token Único
+      if (!token || token !== user.webhook_token) {
+        console.warn(`[Webhook] Tentativa de acesso não autorizada para ${username}. Token inválido.`);
+        return res.status(401).json({ error: "Token de acesso inválido ou ausente." });
+      }
+
+      // Validação da Chave API (Obrigatória para Webhooks conforme solicitado)
+      if (!user.gemini_api_key) {
+        return res.status(400).json({ 
+          error: "Chave API Gemini não configurada para este usuário. Webhooks exigem uma chave própria por segurança." 
+        });
       }
 
       const flowRow: any = db.prepare("SELECT nodes, edges FROM flows WHERE id = ? AND user_id = ?").get(flowId, user.id);

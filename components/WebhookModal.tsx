@@ -19,7 +19,8 @@ const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl
   };
 
   const baseUrl = webhookUrl.split('/api/trigger/')[0];
-  const flowId = webhookUrl.split('/api/trigger/')[1];
+  const fullPath = webhookUrl.split('/api/trigger/')[1] || '';
+  const flowId = fullPath.split('?')[0];
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">

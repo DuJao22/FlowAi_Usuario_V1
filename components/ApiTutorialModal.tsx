@@ -25,7 +25,7 @@ const ApiTutorialModal: React.FC<ApiTutorialModalProps> = ({ isOpen, onClose }) 
   if (!isOpen) return null;
 
   const executeUrl = `${window.location.origin}/api/execute-flow`;
-  const triggerUrl = `${window.location.origin}/api/trigger/{FLOW_ID}`;
+  const triggerUrl = `${window.location.origin}/api/trigger/{FLOW_ID}?token={WEBHOOK_TOKEN}`;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

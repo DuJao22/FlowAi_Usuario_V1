@@ -87,6 +87,7 @@ export interface User {
   id: number;
   username: string;
   gemini_api_key?: string;
+  webhook_token?: string;
 }
 
 export interface AuthState {

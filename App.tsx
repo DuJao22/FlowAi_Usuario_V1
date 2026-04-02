@@ -227,7 +227,8 @@ const App = () => {
         setSaveStatus('saving');
         
         // Feedback imediato: define a URL do webhook de forma otimista
-        const optimisticUrl = `${window.location.origin}/api/trigger/${auth.user?.username || 'user'}/${project.id}`;
+        const tokenParam = auth.user?.webhook_token ? `?token=${auth.user.webhook_token}` : '';
+        const optimisticUrl = `${window.location.origin}/api/trigger/${auth.user?.username || 'user'}/${project.id}${tokenParam}`;
         setWebhookUrl(optimisticUrl);
         
         console.log("handlePublish: Enviando para o servidor...");
