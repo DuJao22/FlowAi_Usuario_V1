@@ -79,13 +79,17 @@ export class FlowEngine {
             }
 
             // TRATAMENTO DE ERROS DE CHAVE (Google APIs)
-            if (url.includes('googleapis.com') && (status === 403 || status === 400 || status === 429)) {
+            if (url.includes('googleapis.com') && (status === 403 || status === 400 || status === 429 || status === 503)) {
                 const errorText = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
                 const isLeaked = errorText.toLowerCase().includes('leaked');
+                const isHighDemand = status === 503 || errorText.toLowerCase().includes('high demand');
+                
                 let logMsg = `🔄 Chave #${keyManager.getCurrentIndex() + 1} falhou (${status}). Rotacionando...`;
                 
                 if (isLeaked) {
                     logMsg = `🚫 Chave #${keyManager.getCurrentIndex() + 1} identificada como VAZADA. Removendo do pool...`;
+                } else if (isHighDemand) {
+                    logMsg = `🚀 Chave #${keyManager.getCurrentIndex() + 1} com Alta Demanda (503). Tentando próxima...`;
                 }
 
                 console.warn(`[FlowEngine] ${logMsg}`, errorText.substring(0, 100));
@@ -228,8 +232,15 @@ export class FlowEngine {
             this.context[node.id] = responseData;
             
             // Auto-extrai o texto da resposta do Gemini se for uma requisição HTTP direta para a API
-            if (url.includes('generativelanguage.googleapis.com') && responseData?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                this.context['input'] = responseData.candidates[0].content.parts[0].text;
+            if (url.includes('generativelanguage.googleapis.com')) {
+                const extractedText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (extractedText) {
+                    this.context['input'] = extractedText;
+                } else {
+                    // Se for Gemini mas não tem texto, pode ser um erro ou formato diferente
+                    this.context['input'] = responseData;
+                    this.addLog(createLog(node.id, label, 'WARN', `⚠️ Resposta do Gemini em formato inesperado.`));
+                }
             } else {
                 this.context['input'] = responseData; 
             }
@@ -256,7 +267,13 @@ export class FlowEngine {
               body: JSON.stringify(geminiBody)
             }, node.id, label);
 
-            const aiText = geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta.";
+            const aiText = geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (!aiText) {
+                console.error("[FlowEngine] Resposta do Gemini sem texto:", JSON.stringify(geminiResponse));
+                throw new Error("A IA retornou uma resposta vazia ou em formato inesperado.");
+            }
+
             this.context[node.id] = aiText;
             this.context['input'] = aiText;
             this.addLog(createLog(node.id, label, 'SUCCESS', `🤖 IA processou dados com sucesso.`));
@@ -326,12 +343,31 @@ export class FlowEngine {
             break;
 
           case NodeType.FILE_SAVE:
-            const fileName = config?.fileName || `output-${Date.now()}.txt`;
+            let fileName = config?.fileName || `output-${Date.now()}.txt`;
             let content = this.context['input'];
+            let extension = config?.fileFormat || 'txt';
             
             // Se vier do Gemini, extrai o texto principal
             if (content?.candidates?.[0]?.content?.parts?.[0]?.text) {
                 content = content.candidates[0].content.parts[0].text;
+            }
+
+            if (typeof content === 'string') {
+                // Auto-detect HTML se o conteúdo começar com tags HTML e a extensão for txt ou não definida
+                const isHtmlContent = /^\s*<(!DOCTYPE\s+)?html/i.test(content) || /^\s*<html/i.test(content) || /^\s*```html/i.test(content);
+                
+                if (isHtmlContent && (extension === 'txt' || !extension)) {
+                    extension = 'html';
+                    if (fileName.endsWith('.txt')) {
+                        fileName = fileName.replace(/\.txt$/, '.html');
+                    }
+                }
+
+                // Limpeza de Markdown se for HTML
+                if (extension === 'html') {
+                    // Remove blocos de código markdown (```html ... ``` ou ``` ... ```)
+                    content = content.replace(/```(?:html)?\s*([\s\S]*?)```/g, '$1').trim();
+                }
             }
 
             if (this.onFileGenerated && content) {
@@ -339,7 +375,7 @@ export class FlowEngine {
                   id: Math.random().toString(36).substring(2),
                   name: fileName,
                   content: typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content),
-                  extension: config?.fileFormat || 'txt',
+                  extension: extension,
                   timestamp: Date.now(),
                   nodeId: node.id
               });
