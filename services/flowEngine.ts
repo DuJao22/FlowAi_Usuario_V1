@@ -152,6 +152,23 @@ export class FlowEngine {
     });
   }
 
+  private resolveVariablesInObject(obj: any): any {
+    if (typeof obj === 'string') {
+      return this.resolveVariables(obj);
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.resolveVariablesInObject(item));
+    }
+    if (typeof obj === 'object' && obj !== null) {
+      const newObj: any = {};
+      for (const key in obj) {
+        newObj[key] = this.resolveVariablesInObject(obj[key]);
+      }
+      return newObj;
+    }
+    return obj;
+  }
+
   private async executeNode(node: FlowNode): Promise<boolean> {
     let { type, config, label } = node.data;
     if (!type && node.type) type = node.type as NodeType;
@@ -195,15 +212,12 @@ export class FlowEngine {
             const method = (config?.method || 'GET').toUpperCase();
             let body = config?.body;
 
-            // Resolve variáveis no corpo (seja string ou objeto)
+            // Resolve variáveis no corpo (seja string ou objeto) de forma segura
             if (body) {
-                if (typeof body === 'string') {
-                    body = this.resolveVariables(body);
+                body = this.resolveVariablesInObject(body);
+                // Se for uma string que parece JSON após a resolução, tenta parsear
+                if (typeof body === 'string' && (body.startsWith('{') || body.startsWith('['))) {
                     try { body = JSON.parse(body); } catch (e) {}
-                } else if (typeof body === 'object') {
-                    const bodyStr = JSON.stringify(body);
-                    const resolvedBodyStr = this.resolveVariables(bodyStr);
-                    try { body = JSON.parse(resolvedBodyStr); } catch (e) { body = resolvedBodyStr; }
                 }
             }
             
