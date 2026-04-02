@@ -170,6 +170,24 @@ export class FlowEngine {
             // Resolve variáveis na URL
             url = this.resolveVariables(url);
 
+            // Auto-fix para modelos Gemini descontinuados
+            if (url.includes('generativelanguage.googleapis.com')) {
+                // Normaliza a URL para v1beta se estiver usando v1 ou sem versão
+                if (url.includes('/v1/') || !url.includes('/v1beta/')) {
+                    url = url.replace('/v1/', '/v1beta/');
+                    if (!url.includes('/v1beta/')) {
+                        url = url.replace('generativelanguage.googleapis.com/', 'generativelanguage.googleapis.com/v1beta/');
+                    }
+                }
+
+                if (url.includes('gemini-pro') || url.includes('gemini-1.5-flash') || url.includes('gemini-1.5-pro')) {
+                    url = url.replace('gemini-pro', 'gemini-3-flash-preview')
+                             .replace('gemini-1.5-flash', 'gemini-3-flash-preview')
+                             .replace('gemini-1.5-pro', 'gemini-3.1-pro-preview');
+                    this.addLog(createLog(node.id, label, 'INFO', `🔧 Auto-fix: Atualizando modelo Gemini descontinuado na URL.`));
+                }
+            }
+
             const method = (config?.method || 'GET').toUpperCase();
             let body = config?.body;
 
@@ -224,7 +242,7 @@ export class FlowEngine {
             let prompt = config?.prompt || 'Olá, como posso ajudar?';
             prompt = this.resolveVariables(prompt);
 
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`;
             
             const geminiBody = {
               contents: [{

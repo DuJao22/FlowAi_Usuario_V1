@@ -12,7 +12,7 @@ export const validateGeminiKey = async (apiKey: string): Promise<{ valid: boolea
     
     // Tenta gerar 1 token apenas para validar a conexão/autenticação
     await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: { role: 'user', parts: [{ text: 'Ping' }] },
       config: { 
         maxOutputTokens: 1,
@@ -65,7 +65,7 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       finalPromptParts.push({ text: `SOLICITAÇÃO DO USUÁRIO: ${userPrompt}` });
 
       const response = await ai.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: [{ role: 'user', parts: finalPromptParts }],
           config: { 
               temperature: 0.2,

@@ -136,5 +136,5 @@ Use exatamente esta estrutura:
 1. Sempre comece com um node 'start'.
 2. Conecte todos os nodes logicamente (edges).
 3. Posicione os nodes verticalmente (y + 150px a cada passo).
-4. Para usar IA/Gemini no fluxo, prefira o node 'gemini'.
+4. Para usar IA/Gemini no fluxo, use SEMPRE o node 'gemini'. Ele já está configurado para o modelo mais recente e estável.
 `;
