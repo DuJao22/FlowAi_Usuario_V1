@@ -17,16 +17,19 @@ import {
 interface ApiTutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userToken?: string;
+  projectId?: string;
 }
 
-const ApiTutorialModal: React.FC<ApiTutorialModalProps> = ({ isOpen, onClose }) => {
+const ApiTutorialModal: React.FC<ApiTutorialModalProps> = ({ isOpen, onClose, userToken, projectId }) => {
   const [copied, setCopied] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const executeUrl = `${window.location.origin}/api/execute-flow`;
-  const triggerUrl = `${window.location.origin}/api/trigger/{FLOW_ID}?token={WEBHOOK_TOKEN}`;
-  const globalUrl = `${window.location.origin}/api/v1/webhook?token={WEBHOOK_TOKEN}`;
+  const tokenParam = userToken ? `?token=${userToken}` : '';
+  const executeUrl = `${window.location.origin}/api/execute-flow${tokenParam}`;
+  const triggerUrl = `${window.location.origin}/api/trigger/${projectId || '{FLOW_ID}'}${tokenParam}`;
+  const globalUrl = `${window.location.origin}/api/v1/webhook${tokenParam}`;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

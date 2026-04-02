@@ -94,18 +94,21 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       const errorMsg = error.message || "";
       const isForbidden = error.status === 403 || errorMsg.includes('403') || errorMsg.includes('API_KEY_INVALID');
       const isQuota = error.status === 429 || errorMsg.includes('429') || errorMsg.toLowerCase().includes('quota');
+      const isHighDemand = error.status === 503 || errorMsg.includes('503') || errorMsg.toLowerCase().includes('high demand');
       const isLeaked = errorMsg.toLowerCase().includes('leaked');
 
       console.error(`[IA Attempt ${attempt + 1}] Falha na Chave #${keyManager.getCurrentIndex() + 1}: ${errorMsg}`);
       lastError = errorMsg;
 
-      if (isForbidden || isQuota || isLeaked) {
+      if (isForbidden || isQuota || isLeaked || isHighDemand) {
           // Marca como falha e tenta a próxima chave imediatamente
           keyManager.markCurrentKeyAsFailed();
           
-          // Se for quota, podemos ser mais específicos no log
+          // Se for quota ou alta demanda, podemos ser mais específicos no log
           if (isQuota) {
             console.warn(`[IA] Quota excedida para a chave #${keyManager.getCurrentIndex() + 1}. Tentando próxima...`);
+          } else if (isHighDemand) {
+            console.warn(`[IA] Alta demanda (503) para a chave #${keyManager.getCurrentIndex() + 1}. Tentando próxima...`);
           }
           
           continue; 
@@ -127,6 +130,8 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       userHelp = "\n\n💡 **Dica para Deploy (Vercel/Netlify):**\nO erro 403 geralmente significa que suas chaves no Google Cloud têm restrição de domínio (Referrer). Adicione o domínio do seu site hospedado nas configurações da chave ou remova as restrições de site.";
   } else if (lastError.includes('429') || lastError.toLowerCase().includes('quota')) {
       userHelp = "\n\n📊 **Limite de Quota Atingido:**\nVocê atingiu o limite de uso gratuito do Gemini (20 requisições/dia no Flash). \n\n**Como resolver:**\n1. Aguarde alguns minutos (se for limite por minuto).\n2. Adicione **mais chaves** nas configurações para aumentar seu pool.\n3. Use uma chave de um projeto com faturamento ativado.";
+  } else if (lastError.includes('503') || lastError.toLowerCase().includes('high demand')) {
+      userHelp = "\n\n🚀 **Alta Demanda no Gemini (503):**\nOs servidores do Google estão recebendo muitas requisições simultâneas agora.\n\n**Como resolver:**\n1. Tente novamente em 10 ou 20 segundos.\n2. Se você tiver várias chaves, o sistema tentará alternar entre elas automaticamente.";
   }
 
   return { 

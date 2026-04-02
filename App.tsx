@@ -1,5 +1,6 @@
 
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
+import PreviewModal from './components/PreviewModal';
 import {
   ReactFlow,
   addEdge,
@@ -162,6 +163,7 @@ const App = () => {
   const [globalWebhookUrl, setGlobalWebhookUrl] = useState<string>('');
   
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
+  const [previewFile, setPreviewFile] = useState<GeneratedFile | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -328,7 +330,13 @@ const App = () => {
     const engine = new FlowEngine(
       nodes, edges, setNodes, 
       (log: LogEntry) => setLogs(prev => [...prev, log]),
-      (file: GeneratedFile) => setFiles(prev => [file, ...prev])
+      (file: GeneratedFile) => {
+        setFiles(prev => [file, ...prev]);
+        // Auto-open preview for HTML files
+        if (file.extension === 'html') {
+            setPreviewFile(file);
+        }
+      }
     );
 
     try {
@@ -752,7 +760,7 @@ const App = () => {
                     </div>
                     <div className="flex-1 overflow-hidden relative">
                          {terminalSubTab === 'logs' ? <LogPanel logs={logs} isOpen={true} onSelectNode={(id) => setSelectedNodeId(id)} /> : 
-                          terminalSubTab === 'files' ? <FilePanel files={files} projectName={currentProject?.name} onDeleteFile={handleDeleteFile} /> :
+                          terminalSubTab === 'files' ? <FilePanel files={files} projectName={currentProject?.name} onDeleteFile={handleDeleteFile} onPreviewFile={setPreviewFile} /> :
                           <HistoryPanel />}
                     </div>
                 </div>
@@ -869,7 +877,7 @@ const App = () => {
                 </div>
                 <div className="flex-1 overflow-hidden">
                     {terminalSubTab === 'logs' ? <LogPanel logs={logs} isOpen={true} onSelectNode={(id) => setSelectedNodeId(id)} /> : 
-                     terminalSubTab === 'files' ? <FilePanel files={files} projectName={currentProject?.name} onDeleteFile={handleDeleteFile} /> :
+                     terminalSubTab === 'files' ? <FilePanel files={files} projectName={currentProject?.name} onDeleteFile={handleDeleteFile} onPreviewFile={setPreviewFile} /> :
                      <HistoryPanel />}
                 </div>
              </div>
@@ -890,13 +898,23 @@ const App = () => {
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} auth={auth} />
         <ProjectLibraryModal isOpen={isLibraryOpen} onClose={() => setIsLibraryOpen(false)} onLoadProject={handleLoadProject} currentNodesCount={nodes.length} activeProjectId={currentProject?.id} />
         <FlowJsonModal isOpen={isJsonModalOpen} onClose={() => setIsJsonModalOpen(false)} nodes={nodes} edges={edges} onImport={handleImportJson} />
-        <ApiTutorialModal isOpen={isApiTutorialOpen} onClose={() => setIsApiTutorialOpen(false)} />
+         <ApiTutorialModal 
+          isOpen={isApiTutorialOpen} 
+          onClose={() => setIsApiTutorialOpen(false)} 
+          userToken={auth.user?.webhook_token}
+          projectId={currentProject?.id}
+        />
         <WebhookModal 
           isOpen={isWebhookModalOpen} 
           onClose={() => setIsWebhookModalOpen(false)} 
           webhookUrl={webhookUrl || ''} 
           globalWebhookUrl={globalWebhookUrl}
           userToken={auth.user?.webhook_token}
+        />
+
+        <PreviewModal 
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
         />
 
         {!auth.isAuthenticated && (

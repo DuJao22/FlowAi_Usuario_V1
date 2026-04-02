@@ -5,10 +5,11 @@ interface FilePanelProps {
   files: GeneratedFile[];
   isOpen?: boolean;
   onDeleteFile?: (id: string) => void;
+  onPreviewFile?: (file: GeneratedFile) => void;
   projectName?: string;
 }
 
-const FilePanel: React.FC<FilePanelProps> = ({ files, isOpen = true, onDeleteFile, projectName }) => {
+const FilePanel: React.FC<FilePanelProps> = ({ files, isOpen = true, onDeleteFile, onPreviewFile, projectName }) => {
   
   const downloadFile = (file: GeneratedFile) => {
     const byteOrderMark = '\uFEFF';
@@ -71,6 +72,7 @@ const FilePanel: React.FC<FilePanelProps> = ({ files, isOpen = true, onDeleteFil
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-black uppercase text-[10px] border transition-colors ${
                     file.extension === 'json' ? 'bg-yellow-900/20 text-yellow-500 border-yellow-900/30' :
                     file.extension === 'csv' ? 'bg-green-900/20 text-green-500 border-green-900/30' :
+                    file.extension === 'html' ? 'bg-purple-900/20 text-purple-500 border-purple-900/30' :
                     'bg-blue-900/20 text-blue-500 border-blue-900/30'
                 }`}>
                     {file.extension}
@@ -84,6 +86,15 @@ const FilePanel: React.FC<FilePanelProps> = ({ files, isOpen = true, onDeleteFil
              </div>
              
              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                 {file.extension === 'html' && onPreviewFile && (
+                     <button 
+                        onClick={() => onPreviewFile(file)}
+                        className="text-purple-400 hover:text-white bg-purple-900/20 hover:bg-purple-900/40 p-2 rounded-lg transition-all border border-purple-900/30"
+                        title="Visualizar Página"
+                     >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                     </button>
+                 )}
                  <button 
                     onClick={() => downloadFile(file)}
                     className="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition-all border border-gray-700"

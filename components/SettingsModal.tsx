@@ -168,6 +168,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, auth }) 
           </div>
           
           <div className="bg-gray-800/50 rounded-xl p-4 text-xs text-gray-400 space-y-2 border border-gray-700/50">
+             <div className="flex justify-between items-center">
+                <span className="font-bold uppercase tracking-widest text-[10px]">Webhook Token</span>
+                <div className="flex items-center gap-2">
+                    <code className="bg-gray-950 px-2 py-1 rounded text-blue-400 font-mono text-[10px] border border-blue-900/30">
+                        {auth.user?.webhook_token || 'Não autenticado'}
+                    </code>
+                    {auth.user?.webhook_token && (
+                        <button 
+                            onClick={() => {
+                                navigator.clipboard.writeText(auth.user?.webhook_token || '');
+                                alert('Token copiado!');
+                            }}
+                            className="text-gray-500 hover:text-white transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-6a2 2 0 00-2 2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM8 5.5V7" /></svg>
+                        </button>
+                    )}
+                </div>
+             </div>
+             <p className="text-[9px] text-gray-500 leading-tight">
+                Este token é único para sua conta e é usado para autenticar chamadas de API externas aos seus fluxos.
+             </p>
+          </div>
+
+          <div className="bg-gray-800/50 rounded-xl p-4 text-xs text-gray-400 space-y-2 border border-gray-700/50">
              <div className="flex justify-between">
                 <span>Versão</span>
                 <span className="text-gray-200">1.5.0 Mobile-First</span>
