@@ -93,7 +93,7 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
     } catch (error: any) {
       const errorMsg = error.message || "";
       const isForbidden = error.status === 403 || errorMsg.includes('403') || errorMsg.includes('API_KEY_INVALID');
-      const isQuota = error.status === 429 || errorMsg.includes('429') || errorMsg.includes('quota');
+      const isQuota = error.status === 429 || errorMsg.includes('429') || errorMsg.toLowerCase().includes('quota');
       const isLeaked = errorMsg.toLowerCase().includes('leaked');
 
       console.error(`[IA Attempt ${attempt + 1}] Falha na Chave #${keyManager.getCurrentIndex() + 1}: ${errorMsg}`);
@@ -102,6 +102,12 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       if (isForbidden || isQuota || isLeaked) {
           // Marca como falha e tenta a próxima chave imediatamente
           keyManager.markCurrentKeyAsFailed();
+          
+          // Se for quota, podemos ser mais específicos no log
+          if (isQuota) {
+            console.warn(`[IA] Quota excedida para a chave #${keyManager.getCurrentIndex() + 1}. Tentando próxima...`);
+          }
+          
           continue; 
       }
 
@@ -119,10 +125,12 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       userHelp = "\n\n🚨 **ALERTA DE SEGURANÇA:**\nSua chave de API foi detectada como VAZADA publicamente e bloqueada pelo Google. Você DEVE gerar uma nova chave no Google AI Studio imediatamente.";
   } else if (lastError.includes('403')) {
       userHelp = "\n\n💡 **Dica para Deploy (Vercel/Netlify):**\nO erro 403 geralmente significa que suas chaves no Google Cloud têm restrição de domínio (Referrer). Adicione o domínio do seu site hospedado nas configurações da chave ou remova as restrições de site.";
+  } else if (lastError.includes('429') || lastError.toLowerCase().includes('quota')) {
+      userHelp = "\n\n📊 **Limite de Quota Atingido:**\nVocê atingiu o limite de uso gratuito do Gemini (20 requisições/dia no Flash). \n\n**Como resolver:**\n1. Aguarde alguns minutos (se for limite por minuto).\n2. Adicione **mais chaves** nas configurações para aumentar seu pool.\n3. Use uma chave de um projeto com faturamento ativado.";
   }
 
   return { 
-    text: `❌ **Falha Total no Pool de Chaves**\n\nTodas as ${statusInfo.total} chaves retornaram erro. A última falha foi: ${lastError}${userHelp}`, 
+    text: `❌ **Falha Total no Pool de Chaves**\n\nTodas as ${statusInfo.total} chaves do seu pool estão temporariamente indisponíveis ou esgotadas. \n\n**Último erro:** ${lastError}${userHelp}`, 
     flowData: undefined 
   };
 };

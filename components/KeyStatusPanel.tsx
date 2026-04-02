@@ -63,8 +63,15 @@ const KeyStatusPanel: React.FC = () => {
             ))}
           </div>
           
-          <div className="mt-3 pt-3 border-t border-gray-800 text-[9px] text-gray-500 italic">
-            O sistema troca automaticamente quando uma chave atinge o limite de créditos.
+          <div className="mt-3 pt-3 border-t border-gray-800 space-y-2">
+            <div className="text-[9px] text-gray-500 italic">
+              O sistema troca automaticamente quando uma chave atinge o limite de créditos.
+            </div>
+            <div className="bg-blue-900/10 border border-blue-500/20 rounded p-2">
+              <p className="text-[9px] text-blue-300 leading-tight">
+                <strong>Dica:</strong> O plano gratuito tem limite de 20 requisições/dia por chave. Adicione mais chaves nas configurações para aumentar seu limite total.
+              </p>
+            </div>
           </div>
         </div>
       )}

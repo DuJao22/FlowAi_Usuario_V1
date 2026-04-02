@@ -6,12 +6,12 @@ export const CREATOR_CREDIT = "Criado por João Layon";
 // --- FLUXO INICIAL (DEMO REAL) ---
 export const INITIAL_NODES = [
   {
-    id: 'start-1',
+    id: 'webhook-1',
     type: 'custom',
     position: { x: 50, y: 50 },
     data: { 
-      label: 'Início Manual', 
-      type: NodeType.START, 
+      label: 'Webhook Entry', 
+      type: NodeType.WEBHOOK, 
       status: NodeStatus.IDLE,
       config: {} 
     },
@@ -61,7 +61,7 @@ export const INITIAL_NODES = [
 ];
 
 export const INITIAL_EDGES = [
-  { id: 'e1-2', source: 'start-1', target: 'req-1', animated: true, style: { stroke: '#63b3ed' } },
+  { id: 'e1-2', source: 'webhook-1', target: 'req-1', animated: true, style: { stroke: '#63b3ed' } },
   { id: 'e2-3', source: 'req-1', target: 'if-1', animated: true, style: { stroke: '#63b3ed' } },
   { id: 'e3-4', source: 'if-1', target: 'save-1', animated: true, style: { stroke: '#63b3ed' } }
 ];

@@ -4,11 +4,13 @@ interface WebhookModalProps {
   isOpen: boolean;
   onClose: () => void;
   webhookUrl: string;
+  globalWebhookUrl?: string;
+  userToken?: string;
 }
 
-const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl }) => {
+const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl, globalWebhookUrl, userToken }) => {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'trigger' | 'execute' | 'save'>('trigger');
+  const [activeTab, setActiveTab] = useState<'trigger' | 'execute' | 'save' | 'direct'>('trigger');
 
   if (!isOpen) return null;
 
@@ -18,7 +20,7 @@ const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const baseUrl = webhookUrl.split('/api/trigger/')[0];
+  const baseUrl = webhookUrl.split('/api/trigger/')[0] || window.location.origin;
   const fullPath = webhookUrl.split('/api/trigger/')[1] || '';
   const flowId = fullPath.split('?')[0];
 
@@ -39,19 +41,25 @@ const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl
             onClick={() => setActiveTab('trigger')}
             className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${activeTab === 'trigger' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-indigo-950/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
           >
-            1. Gatilho (Executar Salvo)
+            1. Gatilho (ID Único)
           </button>
           <button
             onClick={() => setActiveTab('execute')}
             className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${activeTab === 'execute' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-emerald-950/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
           >
-            2. Executar Dinâmico
+            2. Gatilho Global (V1)
           </button>
           <button
             onClick={() => setActiveTab('save')}
             className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${activeTab === 'save' ? 'text-amber-400 border-b-2 border-amber-500 bg-amber-950/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
           >
-            3. Salvar / Atualizar
+            3. Salvar
+          </button>
+          <button
+            onClick={() => setActiveTab('direct')}
+            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest transition-colors ${activeTab === 'direct' ? 'text-blue-400 border-b-2 border-blue-500 bg-blue-950/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800'}`}
+          >
+            4. Execução Direta
           </button>
         </div>
 
@@ -100,23 +108,52 @@ const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
               <div className="bg-emerald-900/10 border border-emerald-500/20 rounded-xl p-4">
                 <h4 className="text-xs font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  Para que serve?
+                </h4>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Este é o seu <strong>Endpoint Global</strong>. Ele sempre executará o fluxo que você salvou ou editou por último. É ideal para integrações permanentes onde você não quer mudar a URL toda vez que criar um novo fluxo.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Endpoint Global (V1)</label>
+                <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 rounded-xl p-3 group hover:border-emerald-500/50 transition-colors">
+                  <code className="text-xs text-emerald-300 font-mono flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                    {globalWebhookUrl || 'Carregando...'}
+                  </code>
+                  <button 
+                    onClick={() => handleCopy(globalWebhookUrl || '')}
+                    className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 active:scale-95'}`}
+                  >
+                    {copied ? 'Copiado' : 'Copiar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'direct' && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+              <div className="bg-blue-900/10 border border-blue-500/20 rounded-xl p-4">
+                <h4 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   Para que serve?
                 </h4>
                 <p className="text-xs text-gray-300 leading-relaxed">
-                  Executa um fluxo dinamicamente <strong>sem precisar salvá-lo</strong>. Ideal se o seu sistema externo gera a estrutura do fluxo (<code className="text-emerald-300 bg-emerald-950 px-1 rounded">nodes</code> e <code className="text-emerald-300 bg-emerald-950 px-1 rounded">edges</code>) e quer apenas o resultado da execução.
+                  Executa um fluxo dinamicamente <strong>sem precisar salvá-lo</strong>. Ideal se o seu sistema externo gera a estrutura do fluxo (<code className="text-blue-300 bg-blue-950 px-1 rounded">nodes</code> e <code className="text-blue-300 bg-blue-950 px-1 rounded">edges</code>) e quer apenas o resultado da execução.
                 </p>
               </div>
 
               <div>
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Endpoint (POST)</label>
-                <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 rounded-xl p-3 group hover:border-emerald-500/50 transition-colors">
-                  <code className="text-xs text-emerald-300 font-mono flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                    {baseUrl}/api/execute-flow
+                <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 rounded-xl p-3 group hover:border-blue-500/50 transition-colors">
+                  <code className="text-xs text-blue-300 font-mono flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                    {baseUrl}/api/execute-flow{userToken ? `?token=${userToken}` : ''}
                   </code>
                   <button 
-                    onClick={() => handleCopy(`${baseUrl}/api/execute-flow`)}
-                    className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 active:scale-95'}`}
+                    onClick={() => handleCopy(`${baseUrl}/api/execute-flow${userToken ? `?token=${userToken}` : ''}`)}
+                    className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 active:scale-95'}`}
                   >
                     {copied ? 'Copiado' : 'Copiar'}
                   </button>
@@ -127,15 +164,9 @@ const WebhookModal: React.FC<WebhookModalProps> = ({ isOpen, onClose, webhookUrl
                 <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Payload Esperado (Obrigatório)</label>
                 <pre className="bg-gray-950 border border-gray-800 rounded-xl p-4 text-xs text-gray-300 font-mono overflow-x-auto">
 {`{
-  "nodes": [
-    { "id": "node-1", "type": "custom", "data": { ... } }
-  ],
-  "edges": [
-    { "id": "e1-2", "source": "node-1", "target": "node-2" }
-  ],
-  "data": {
-    "opcional": "dados de entrada para o fluxo"
-  }
+  "nodes": [ ... ],
+  "edges": [ ... ],
+  "data": { "opcional": "dados" }
 }`}
                 </pre>
               </div>

@@ -159,6 +159,7 @@ const App = () => {
   const [isApiTutorialOpen, setIsApiTutorialOpen] = useState(false);
   const [isWebhookModalOpen, setIsWebhookModalOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  const [globalWebhookUrl, setGlobalWebhookUrl] = useState<string>('');
   
   const [isMainMenuOpen, setIsMainMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -172,6 +173,15 @@ const App = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      const tokenParam = auth.user.webhook_token ? `?token=${auth.user.webhook_token}` : '';
+      setGlobalWebhookUrl(`${window.location.origin}/api/v1/webhook${tokenParam}`);
+    } else {
+      setGlobalWebhookUrl('');
+    }
+  }, [auth.isAuthenticated, auth.user]);
 
   useEffect(() => {
     const saved = localStorage.getItem(AUTOSAVE_KEY);
@@ -228,7 +238,7 @@ const App = () => {
         
         // Feedback imediato: define a URL do webhook de forma otimista
         const tokenParam = auth.user?.webhook_token ? `?token=${auth.user.webhook_token}` : '';
-        const optimisticUrl = `${window.location.origin}/api/trigger/${auth.user?.username || 'user'}/${project.id}${tokenParam}`;
+        const optimisticUrl = `${window.location.origin}/api/trigger/${project.id}${tokenParam}`;
         setWebhookUrl(optimisticUrl);
         
         console.log("handlePublish: Enviando para o servidor...");
@@ -411,6 +421,18 @@ const App = () => {
 
             {/* STATUS TICKER & WEBHOOK (DESKTOP/TABLET) */}
             <div className="hidden md:flex flex-1 items-center gap-6 px-4 overflow-hidden">
+                {globalWebhookUrl && (
+                    <div 
+                        onClick={() => setIsWebhookModalOpen(true)}
+                        className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-indigo-500/20 transition-all group max-w-[240px] shrink-0 animate-in fade-in slide-in-from-left-2"
+                        title="Seu Endpoint Global (Sempre executa o fluxo mais recente)"
+                    >
+                        <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                        <code className="text-[9px] font-mono text-indigo-200 truncate">{globalWebhookUrl}</code>
+                        <ExternalLink className="w-2.5 h-2.5 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                )}
+
                 {webhookUrl && (
                     <div 
                         onClick={() => setIsWebhookModalOpen(true)}
@@ -869,7 +891,13 @@ const App = () => {
         <ProjectLibraryModal isOpen={isLibraryOpen} onClose={() => setIsLibraryOpen(false)} onLoadProject={handleLoadProject} currentNodesCount={nodes.length} activeProjectId={currentProject?.id} />
         <FlowJsonModal isOpen={isJsonModalOpen} onClose={() => setIsJsonModalOpen(false)} nodes={nodes} edges={edges} onImport={handleImportJson} />
         <ApiTutorialModal isOpen={isApiTutorialOpen} onClose={() => setIsApiTutorialOpen(false)} />
-        <WebhookModal isOpen={isWebhookModalOpen} onClose={() => setIsWebhookModalOpen(false)} webhookUrl={webhookUrl || ''} />
+        <WebhookModal 
+          isOpen={isWebhookModalOpen} 
+          onClose={() => setIsWebhookModalOpen(false)} 
+          webhookUrl={webhookUrl || ''} 
+          globalWebhookUrl={globalWebhookUrl}
+          userToken={auth.user?.webhook_token}
+        />
 
         {!auth.isAuthenticated && (
           <LoginModal onLogin={handleLogin} />

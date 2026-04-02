@@ -295,25 +295,75 @@ async function startServer() {
     }
   });
 
-  // Endpoint de Gatilho (Webhook) - Executa um fluxo salvo via GET ou POST
-  app.all("/api/trigger/:username/:flowId", async (req, res) => {
-    const { username, flowId } = req.params;
+  // Endpoint de Gatilho Global (Webhook) - Executa o fluxo mais recente do usuário
+  app.all("/api/v1/webhook", async (req, res) => {
     const { token } = req.query;
     
-    console.log(`[Webhook] Recebido gatilho para o usuário ${username}, fluxo: ${flowId}`);
+    try {
+      if (!token) {
+        return res.status(401).json({ error: "Token de acesso ausente." });
+      }
+
+      const user: any = db.prepare("SELECT id, username, gemini_api_key, webhook_token FROM users WHERE webhook_token = ?").get(token);
+      if (!user) {
+        return res.status(401).json({ error: "Token de acesso inválido." });
+      }
+
+      console.log(`[Global Webhook] Recebido gatilho para o usuário ${user.username}`);
+
+      // Busca o fluxo mais recente
+      const flowRow: any = db.prepare("SELECT id, nodes, edges FROM flows WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1").get(user.id);
+
+      if (!flowRow) {
+        return res.status(404).json({ error: "Nenhum fluxo encontrado para este usuário. Crie e salve um fluxo primeiro." });
+      }
+
+      // Validação da Chave API
+      if (!user.gemini_api_key) {
+        return res.status(400).json({ 
+          error: "Chave API Gemini não configurada. Configure sua chave nas configurações do app." 
+        });
+      }
+
+      const flow = {
+        nodes: JSON.parse(flowRow.nodes),
+        edges: JSON.parse(flowRow.edges)
+      };
+
+      const webhookData = { 
+          query: req.query, 
+          body: req.body,
+          headers: req.headers,
+          method: req.method,
+          is_global: true
+      };
+
+      const result = await executeFlow(flow.nodes, flow.edges, webhookData, flowRow.id, user.gemini_api_key);
+      res.json(result);
+
+    } catch (error: any) {
+      console.error("Erro no gatilho global:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Endpoint de Gatilho (Webhook) - Executa um fluxo salvo via GET ou POST
+  app.all("/api/trigger/:flowId", async (req, res) => {
+    const { flowId } = req.params;
+    const { token } = req.query;
     
     try {
-      const user: any = db.prepare("SELECT id, gemini_api_key, webhook_token FROM users WHERE username = ?").get(username);
+      if (!token) {
+        return res.status(401).json({ error: "Token de acesso ausente." });
+      }
+
+      const user: any = db.prepare("SELECT id, username, gemini_api_key, webhook_token FROM users WHERE webhook_token = ?").get(token);
       if (!user) {
-        return res.status(404).json({ error: "Usuário não encontrado." });
+        return res.status(401).json({ error: "Token de acesso inválido." });
       }
 
-      // Validação do Token Único
-      if (!token || token !== user.webhook_token) {
-        console.warn(`[Webhook] Tentativa de acesso não autorizada para ${username}. Token inválido.`);
-        return res.status(401).json({ error: "Token de acesso inválido ou ausente." });
-      }
-
+      console.log(`[Webhook] Recebido gatilho para o usuário ${user.username}, fluxo: ${flowId}`);
+      
       // Validação da Chave API (Obrigatória para Webhooks conforme solicitado)
       if (!user.gemini_api_key) {
         return res.status(400).json({ 
@@ -324,7 +374,7 @@ async function startServer() {
       const flowRow: any = db.prepare("SELECT nodes, edges FROM flows WHERE id = ? AND user_id = ?").get(flowId, user.id);
 
       if (!flowRow) {
-        console.error(`[Webhook] Fluxo ${flowId} não encontrado para o usuário ${username}.`);
+        console.error(`[Webhook] Fluxo ${flowId} não encontrado para o usuário ${user.username}.`);
         return res.status(404).json({ error: "Fluxo não encontrado no servidor." });
       }
 
@@ -360,7 +410,18 @@ async function startServer() {
 
   // API Endpoint para executar o fluxo via POST direto (sem salvar)
   app.post("/api/execute-flow", async (req, res) => {
+    const { token } = req.query;
+    
     try {
+      if (!token) {
+        return res.status(401).json({ error: "Token de acesso ausente." });
+      }
+
+      const user: any = db.prepare("SELECT id, username, gemini_api_key, webhook_token FROM users WHERE webhook_token = ?").get(token);
+      if (!user) {
+        return res.status(401).json({ error: "Token de acesso inválido." });
+      }
+
       const { nodes, edges, data } = req.body;
 
       if (!nodes || !Array.isArray(nodes)) {
@@ -371,7 +432,14 @@ async function startServer() {
         return res.status(400).json({ error: "O corpo da requisição deve conter um array 'edges'." });
       }
 
-      const result = await executeFlow(nodes, edges, data || {});
+      // Validação da Chave API
+      if (!user.gemini_api_key) {
+        return res.status(400).json({ 
+          error: "Chave API Gemini não configurada para este usuário. Execuções via API exigem uma chave própria." 
+        });
+      }
+
+      const result = await executeFlow(nodes, edges, data || {}, undefined, user.gemini_api_key);
       res.json(result);
 
     } catch (error: any) {

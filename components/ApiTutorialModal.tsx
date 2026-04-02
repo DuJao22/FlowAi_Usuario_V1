@@ -26,6 +26,7 @@ const ApiTutorialModal: React.FC<ApiTutorialModalProps> = ({ isOpen, onClose }) 
 
   const executeUrl = `${window.location.origin}/api/execute-flow`;
   const triggerUrl = `${window.location.origin}/api/trigger/{FLOW_ID}?token={WEBHOOK_TOKEN}`;
+  const globalUrl = `${window.location.origin}/api/v1/webhook?token={WEBHOOK_TOKEN}`;
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -63,6 +64,37 @@ const ApiTutorialModal: React.FC<ApiTutorialModalProps> = ({ isOpen, onClose }) 
 
         <div className="p-8 overflow-y-auto custom-scrollbar space-y-10">
           
+          {/* Global Webhook Section */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Zap className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-white uppercase tracking-widest">0. Gatilho Global (Sempre o mais recente)</h3>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+                Este endpoint sempre executa o <strong>último fluxo que você salvou</strong>. É a maneira mais rápida de integrar sem precisar atualizar a URL toda vez que criar um novo projeto.
+            </p>
+            <div className="flex flex-col gap-2 bg-gray-950 border border-gray-800 rounded-2xl p-4 group">
+              <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">URL Global (V1)</span>
+                  <span className="bg-indigo-500/10 text-indigo-400 text-[9px] font-black px-2 py-0.5 rounded border border-indigo-500/20 uppercase">POST / GET</span>
+              </div>
+              <div className="flex items-center gap-3">
+                  <code className="text-[11px] font-mono text-indigo-200 flex-1 truncate">
+                    {globalUrl}
+                  </code>
+                  <button 
+                    onClick={() => handleCopy(globalUrl, 'global')}
+                    className="shrink-0 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    {copied === 'global' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied === 'global' ? 'Copiado' : 'Copiar'}
+                  </button>
+              </div>
+            </div>
+          </section>
+
           {/* Webhook Trigger Section */}
           <section className="space-y-4">
             <div className="flex items-center gap-3">

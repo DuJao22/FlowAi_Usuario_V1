@@ -9,11 +9,29 @@ type KeyListener = (status: string) => void;
 class KeyManager {
   private keys: string[] = [];
   private currentIndex: number = 0;
-  private failedKeys: Set<string> = new Set();
+  private failedKeys: Map<string, number> = new Map(); // key -> timestamp of failure
   private listeners: KeyListener[] = [];
 
   constructor() {
     this.loadKeys();
+    // Limpeza periódica de chaves temporariamente falhas (a cada 30 segundos)
+    if (typeof window !== 'undefined') {
+      setInterval(() => this.cleanupFailedKeys(), 30000);
+    }
+  }
+
+  private cleanupFailedKeys() {
+    const now = Date.now();
+    let changed = false;
+    for (const [key, timestamp] of this.failedKeys.entries()) {
+      // Se passou mais de 2 minutos, tentamos a chave novamente
+      // (Útil para erros de quota temporários ou rate limit)
+      if (now - timestamp > 120000) {
+        this.failedKeys.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
   }
 
   private loadKeys() {
@@ -77,7 +95,7 @@ class KeyManager {
     if (this.keys.length === 0) return '';
     
     let attempts = 0;
-    // Pula chaves que já falharam
+    // Pula chaves que já falharam recentemente
     while (this.failedKeys.has(this.keys[this.currentIndex]) && attempts < this.keys.length) {
       this.currentIndex = (this.currentIndex + 1) % this.keys.length;
       attempts++;
@@ -90,9 +108,9 @@ class KeyManager {
     if (this.keys.length === 0) return false;
     
     const keyToMark = this.keys[this.currentIndex];
-    this.failedKeys.add(keyToMark);
+    this.failedKeys.set(keyToMark, Date.now());
     
-    console.error(`[KeyManager] Chave #${this.currentIndex + 1} falhou.`);
+    console.error(`[KeyManager] Chave #${this.currentIndex + 1} falhou e entrou em cooldown.`);
     
     // Avança para a próxima
     this.currentIndex = (this.currentIndex + 1) % this.keys.length;
