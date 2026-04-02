@@ -51,14 +51,23 @@ export class FlowEngine {
     while (attempts < maxRetries) {
         const activeKey = this.apiKey || keyManager.getActiveKey();
         let finalUrl = url;
+        const isGoogleApi = url.includes('generativelanguage.googleapis.com');
 
-        if (url.includes('googleapis.com') && activeKey) {
+        if (isGoogleApi) {
             try {
                 const urlObj = new URL(url);
-                urlObj.searchParams.set('key', activeKey);
-                finalUrl = urlObj.toString();
+                if (activeKey) {
+                    urlObj.searchParams.set('key', activeKey);
+                    finalUrl = urlObj.toString();
+                    if (attempts === 0) {
+                        this.addLog(createLog(nodeId, label, 'DEBUG', `🔑 Usando Chave #${keyManager.getCurrentIndex() + 1} do pool.`));
+                    }
+                } else {
+                    this.addLog(createLog(nodeId, label, 'WARN', `⚠️ Pool de chaves vazio. Usando chave hardcoded do nó.`));
+                    finalUrl = url;
+                }
             } catch (e) {
-                // Se não for uma URL válida (ex: mock), ignora
+                finalUrl = url;
             }
         }
 
@@ -79,10 +88,11 @@ export class FlowEngine {
             }
 
             // TRATAMENTO DE ERROS DE CHAVE (Google APIs)
-            if (url.includes('googleapis.com') && (status === 403 || status === 400 || status === 429 || status === 503)) {
+            if (isGoogleApi && (status === 403 || status === 400 || status === 429 || status === 503)) {
                 const errorText = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
                 const isLeaked = errorText.toLowerCase().includes('leaked');
                 const isHighDemand = status === 503 || errorText.toLowerCase().includes('high demand');
+                const isQuota = status === 429 || errorText.toLowerCase().includes('quota');
                 
                 let logMsg = `🔄 Chave #${keyManager.getCurrentIndex() + 1} falhou (${status}). Rotacionando...`;
                 
@@ -90,6 +100,8 @@ export class FlowEngine {
                     logMsg = `🚫 Chave #${keyManager.getCurrentIndex() + 1} identificada como VAZADA. Removendo do pool...`;
                 } else if (isHighDemand) {
                     logMsg = `🚀 Chave #${keyManager.getCurrentIndex() + 1} com Alta Demanda (503). Tentando próxima...`;
+                } else if (isQuota) {
+                    logMsg = `📊 Chave #${keyManager.getCurrentIndex() + 1} sem Quota (429). Tentando próxima...`;
                 }
 
                 console.warn(`[FlowEngine] ${logMsg}`, errorText.substring(0, 100));
@@ -97,18 +109,31 @@ export class FlowEngine {
                 if (keyManager.markCurrentKeyAsFailed()) {
                     this.addLog(createLog(nodeId, label, 'WARN', logMsg));
                     attempts++;
-                    await wait(200);
+                    // Backoff maior para quota
+                    await wait(isQuota ? 2000 : 500);
                     continue; 
+                } else if (isQuota && attempts < maxRetries - 1) {
+                    // Se só tem uma chave mas é erro de quota, espera um pouco e tenta de novo a mesma (rate limit)
+                    this.addLog(createLog(nodeId, label, 'WARN', `⏳ Limite atingido. Aguardando 5s para re-tentativa...`));
+                    attempts++;
+                    await wait(5000);
+                    continue;
                 }
             }
 
             const errorDetail = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
-            throw new Error(`Erro API (${status}): ${errorDetail.substring(0, 300)}`);
+            let finalErrorMsg = `Erro API (${status}): ${errorDetail.substring(0, 300)}`;
+            
+            if (status === 429) {
+                finalErrorMsg = `📊 Limite de Quota Excedido (429). \n\nIsso acontece quando:\n1. Você enviou muitas requisições seguidas.\n2. Sua chave gratuita atingiu o limite diário.\n3. Várias chaves no mesmo projeto compartilham a mesma quota.\n\nSOLUÇÃO: Aguarde 1 minuto ou adicione uma chave de um projeto DIFERENTE.`;
+            }
+
+            throw new Error(finalErrorMsg);
 
         } catch (err: any) {
             if (attempts >= maxRetries - 1) throw err;
             attempts++;
-            await wait(500);
+            await wait(1000 * attempts); // Exponential backoff
         }
     }
   }
