@@ -468,6 +468,9 @@ export class FlowEngine {
 
       const success = await this.executeNode(currentNode);
       if (success) {
+        // Pequena pausa obrigatória entre nós para evitar 429 (Rate Limit)
+        await wait(300);
+        
         const nextNodes = this.edges
           .filter(e => e.source === currentNode.id)
           .map(e => this.nodes.find(n => n.id === e.target))

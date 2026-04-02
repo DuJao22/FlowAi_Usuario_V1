@@ -24,9 +24,9 @@ class KeyManager {
     const now = Date.now();
     let changed = false;
     for (const [key, timestamp] of this.failedKeys.entries()) {
-      // Se passou mais de 2 minutos, tentamos a chave novamente
-      // (Útil para erros de quota temporários ou rate limit)
-      if (now - timestamp > 120000) {
+      // Se passou mais de 60 segundos, tentamos a chave novamente
+      // (Reduzido de 120s para 60s para lidar melhor com rate limits por minuto)
+      if (now - timestamp > 60000) {
         this.failedKeys.delete(key);
         changed = true;
       }
