@@ -13,7 +13,7 @@ const FLOWS_FILE = path.join(process.cwd(), "flows.json");
 const HISTORY_FILE = path.join(process.cwd(), "execution_history.json");
 const DB_FILE = path.join(process.cwd(), "database.sqlite");
 
-const JWT_SECRET = "flow-architect-secret-key-local";
+const INTERNAL_APP_SECRET = "flow-architect-secret-key-local-v1";
 
 // Initialize SQLite Database
 const db = new Database(DB_FILE);
@@ -159,7 +159,7 @@ async function startServer() {
       
       try {
         const result = stmt.run(username, hashedPassword);
-        const token = jwt.sign({ userId: result.lastInsertRowid, username }, JWT_SECRET, { expiresIn: "7d" });
+        const token = jwt.sign({ userId: result.lastInsertRowid, username }, INTERNAL_APP_SECRET, { expiresIn: "7d" });
         res.json({ success: true, token, user: { id: result.lastInsertRowid, username } });
       } catch (err: any) {
         if (err.message.includes("UNIQUE constraint failed")) {
@@ -184,7 +184,7 @@ async function startServer() {
         return res.status(401).json({ error: "Usuário ou senha inválidos." });
       }
 
-      const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+      const token = jwt.sign({ userId: user.id, username: user.username }, INTERNAL_APP_SECRET, { expiresIn: "7d" });
       res.json({ success: true, token, user: { id: user.id, username: user.username, gemini_api_key: user.gemini_api_key } });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -198,7 +198,7 @@ async function startServer() {
 
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    jwt.verify(token, INTERNAL_APP_SECRET, (err: any, user: any) => {
       if (err) return res.sendStatus(403);
       req.user = user;
       next();

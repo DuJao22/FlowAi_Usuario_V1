@@ -12,7 +12,7 @@ export const validateGeminiKey = async (apiKey: string): Promise<{ valid: boolea
     
     // Tenta gerar 1 token apenas para validar a conexão/autenticação
     await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       contents: { role: 'user', parts: [{ text: 'Ping' }] },
       config: { 
         maxOutputTokens: 1,
@@ -26,6 +26,7 @@ export const validateGeminiKey = async (apiKey: string): Promise<{ valid: boolea
     
     if (error.status === 403 || error.message?.includes('403')) msg = "Chave Inválida ou Restrita (403)";
     else if (error.status === 400 || error.message?.includes('API_KEY_INVALID')) msg = "Chave Inexistente/Malformada";
+    else if (error.status === 503 || error.message?.includes('503')) msg = "Serviço Indisponível (503) - Tente novamente em instantes";
     else if (error.message?.includes('quota')) msg = "Quota Excedida (Sem créditos)";
     else msg = error.message?.substring(0, 50) + "...";
 
@@ -64,7 +65,7 @@ export const generateFlowFromPrompt = async (userPrompt: string, context?: FlowC
       finalPromptParts.push({ text: `SOLICITAÇÃO DO USUÁRIO: ${userPrompt}` });
 
       const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-1.5-flash',
           contents: [{ role: 'user', parts: finalPromptParts }],
           config: { 
               temperature: 0.2,

@@ -224,7 +224,7 @@ export class FlowEngine {
             let prompt = config?.prompt || 'Olá, como posso ajudar?';
             prompt = this.resolveVariables(prompt);
 
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent`;
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
             
             const geminiBody = {
               contents: [{
